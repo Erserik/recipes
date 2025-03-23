@@ -1,12 +1,11 @@
-from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-
 class UserRegistrationSerializer(serializers.ModelSerializer):
+    avatar = serializers.ImageField(required=False, allow_null=True)
     password = serializers.CharField(write_only=True, min_length=6)
-    avatar = serializers.ImageField(required=False)  # Позволяет загружать файл; не обязательное поле
 
     class Meta:
         model = User
