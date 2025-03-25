@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'accounts',
     'recipes_app',
+    'shopping_app',
 ]
 
 MIDDLEWARE = [
