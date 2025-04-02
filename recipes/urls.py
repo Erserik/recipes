@@ -20,7 +20,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     # Приложение для регистрации/авторизации (accounts)
-    path('api/v1/accounts/', include('accounts.urls')),
+    path('api/v1/auth/', include('accounts.urls')),
 
     # Приложение для рецептов (recipes_app)
     path('api/v1/recipes/', include('recipes_app.urls')),
