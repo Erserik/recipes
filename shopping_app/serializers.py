@@ -1,15 +1,19 @@
 from rest_framework import serializers
 from .models import ShoppingList, ShoppingListItem
-# Если Ingredient и Recipe сериализаторы нужны, импортируйте их из другого приложения или сделайте свои
 
 class ShoppingListItemSerializer(serializers.ModelSerializer):
+    ingredient_name = serializers.CharField(source='ingredient.name', read_only=True)
+    recipe_title = serializers.CharField(source='recipe.title', read_only=True)
+
     class Meta:
         model = ShoppingListItem
         fields = (
             'id',
             'shopping_list',
             'ingredient',
+            'ingredient_name',
             'recipe',
+            'recipe_title',
             'quantity',
             'unit',
             'is_purchased'
