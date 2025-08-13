@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
 from rest_framework import viewsets, status, permissions, serializers
@@ -10,6 +10,23 @@ from drf_yasg import openapi
 
 from .models import ShoppingList, ShoppingListItem
 from .serializers import ShoppingListSerializer, ShoppingListItemSerializer
+
+
+# --------- утилита для безопасного приведения к Decimal ---------
+def to_decimal(v, default="0"):
+    """
+    Приводит значение к Decimal:
+    - поддерживает None / int / float / str / Decimal
+    - float конвертируем через str, чтобы избежать артефактов двоичной дроби
+    """
+    if v is None:
+        return Decimal(default)
+    if isinstance(v, Decimal):
+        return v
+    try:
+        return Decimal(str(v))
+    except (InvalidOperation, TypeError, ValueError):
+        return Decimal(default)
 
 
 class ShoppingListViewSet(viewsets.ModelViewSet):
@@ -55,7 +72,7 @@ class ShoppingListItemViewSet(viewsets.ModelViewSet):
             required=['ingredient_id', 'quantity', 'unit'],
             properties={
                 'shopping_list_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID списка покупок (опционально)'),
-                'ingredient_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID ингредиента',),
+                'ingredient_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID ингредиента'),
                 'quantity': openapi.Schema(type=openapi.TYPE_NUMBER, description='Количество'),
                 'unit': openapi.Schema(type=openapi.TYPE_STRING, description='Единица измерения'),
                 'recipe_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID рецепта (обязательно, если нет shopping_list_id)'),
@@ -116,12 +133,15 @@ class ShoppingListItemViewSet(viewsets.ModelViewSet):
             except _Recipe.DoesNotExist:
                 return Response({"detail": "Рецепт не найден."}, status=404)
 
-        # 4) Создание элемента
+        # 4) Приводим количество к Decimal (безопасно для обоих типов полей)
+        quantity_dec = to_decimal(quantity)
+
+        # 5) Создание элемента
         serializer = self.get_serializer(data={
             "shopping_list": shopping_list.id,
             "ingredient": ingredient.id,
             "recipe": recipe.id if recipe else None,
-            "quantity": quantity,
+            "quantity": quantity_dec,   # Django сам приведёт к типу поля (Decimal/Float)
             "unit": unit,
             "is_purchased": False
         })
@@ -161,9 +181,16 @@ class ShoppingListItemViewSet(viewsets.ModelViewSet):
 
         ser = self.AddRecipeByTitleSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+
         recipe_id = ser.validated_data['recipe_id']
         custom_title = ser.validated_data.get('title')
-        multiply = ser.validated_data.get('multiply') or Decimal("1")
+
+        # Гарантируем Decimal для множителя
+        try:
+            multiply = ser.validated_data.get('multiply')
+            multiply = to_decimal(multiply, default="1")
+        except Exception:
+            return Response({"detail": "multiply должен быть числом"}, status=400)
 
         try:
             recipe = Recipe.objects.get(id=recipe_id)
@@ -178,16 +205,21 @@ class ShoppingListItemViewSet(viewsets.ModelViewSet):
         created_or_updated = []
         with transaction.atomic():
             for ri in recipe_ings:
-                qty = (ri.quantity or 0) * multiply
+                base_qty = to_decimal(ri.quantity)          # quantity из рецепта -> Decimal
+                qty = base_qty * multiply                    # Decimal * Decimal — ок
+
                 obj, created = ShoppingListItem.objects.get_or_create(
                     shopping_list=shopping_list,
                     ingredient=ri.ingredient,
                     recipe=recipe,
-                    defaults={"quantity": qty, "unit": ri.unit, "is_purchased": False}
+                    defaults={
+                        "quantity": qty,                      # Django сам приведёт к типу поля
+                        "unit": ri.unit,
+                        "is_purchased": False
+                    }
                 )
                 if not created:
-                    # Политика слияния: суммируем количество, обновляем unit последним значением
-                    obj.quantity = obj.quantity + qty
+                    obj.quantity = to_decimal(obj.quantity) + qty
                     obj.unit = ri.unit
                     obj.save(update_fields=['quantity', 'unit'])
                 created_or_updated.append(obj)
