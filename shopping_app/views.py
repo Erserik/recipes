@@ -187,8 +187,7 @@ class ShoppingListItemViewSet(viewsets.ModelViewSet):
 
         # Гарантируем Decimal для множителя
         try:
-            multiply = ser.validated_data.get('multiply')
-            multiply = to_decimal(multiply, default="1")
+            multiply = to_decimal(ser.validated_data.get('multiply', "1"), default="1")
         except Exception:
             return Response({"detail": "multiply должен быть числом"}, status=400)
 
@@ -205,24 +204,37 @@ class ShoppingListItemViewSet(viewsets.ModelViewSet):
         created_or_updated = []
         with transaction.atomic():
             for ri in recipe_ings:
-                base_qty = to_decimal(ri.quantity)          # quantity из рецепта -> Decimal
-                qty = base_qty * multiply                    # Decimal * Decimal — ок
+                base_qty = to_decimal(ri.quantity)   # quantity из рецепта -> Decimal
+                qty = base_qty * multiply            # Decimal * Decimal — ок
 
-                obj, created = ShoppingListItem.objects.get_or_create(
+                # Ищем возможные дубликаты, схлопываем их
+                qs = ShoppingListItem.objects.filter(
                     shopping_list=shopping_list,
                     ingredient=ri.ingredient,
-                    recipe=recipe,
-                    defaults={
-                        "quantity": qty,                      # Django сам приведёт к типу поля
-                        "unit": ri.unit,
-                        "is_purchased": False
-                    }
+                    recipe=recipe
                 )
-                if not created:
-                    obj.quantity = to_decimal(obj.quantity) + qty
-                    obj.unit = ri.unit
-                    obj.save(update_fields=['quantity', 'unit'])
-                created_or_updated.append(obj)
+
+                item = qs.first()
+                if item:
+                    # суммируем все существующие количества (если вдруг их несколько)
+                    total_existing = sum((to_decimal(x.quantity) for x in qs), Decimal("0"))
+                    new_total = total_existing + qty
+                    item.quantity = new_total
+                    item.unit = ri.unit
+                    item.save(update_fields=["quantity", "unit"])
+                    # удаляем остальные дубликаты
+                    qs.exclude(pk=item.pk).delete()
+                else:
+                    item = ShoppingListItem.objects.create(
+                        shopping_list=shopping_list,
+                        ingredient=ri.ingredient,
+                        recipe=recipe,
+                        quantity=qty,
+                        unit=ri.unit,
+                        is_purchased=False
+                    )
+
+                created_or_updated.append(item)
 
         return Response(ShoppingListItemSerializer(created_or_updated, many=True).data, status=201)
 
