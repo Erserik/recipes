@@ -1,3 +1,4 @@
+# serializers.py
 from rest_framework import serializers
 from .models import ShoppingList, ShoppingListItem
 
@@ -16,11 +17,12 @@ class ShoppingListItemSerializer(serializers.ModelSerializer):
             'recipe_title',
             'quantity',
             'unit',
-            'is_purchased'
+            'is_purchased',
         )
 
 class ShoppingListSerializer(serializers.ModelSerializer):
     items = ShoppingListItemSerializer(many=True, read_only=True)
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = ShoppingList
