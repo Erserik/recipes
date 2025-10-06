@@ -123,15 +123,30 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # REST Framework configuration (объединённые настройки)
+
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
-    'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
     ),
-    'DEFAULT_PAGINATION_CLASS': 'recipes.pagination.CustomPageNumberPagination',
-    'PAGE_SIZE': 20,
+    "DEFAULT_PAGINATION_CLASS": "recipes.pagination.CustomPageNumberPagination",
+    "PAGE_SIZE": 20,
+}
+
+SWAGGER_SETTINGS = {
+    "USE_SESSION_AUTH": False,  # убираем cookie/csrf-логин
+    "SECURITY_DEFINITIONS": {
+        "Bearer": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": 'JWT. Вводи так: "Bearer <access_token>"',
+        }
+    },
+    # применить авторизацию по умолчанию ко всем операциям
+    "DEFAULT_API_URL": "https://erko123.pythonanywhere.com",  # опционально
 }
 
 # Simple JWT settings
