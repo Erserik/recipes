@@ -436,10 +436,12 @@ class JsonXmlConverterView(APIView):
 
             if "xml" in content_type:
                 input_format = "xml"
-                converted = JSONRenderer().render(data).decode("utf-8")
+                converted_bytes = JSONRenderer().render(data)
+                converted = converted_bytes.decode("utf-8") if isinstance(converted_bytes, bytes) else converted_bytes
             else:
                 input_format = "json"
-                converted = XMLRenderer().render(data).decode("utf-8")
+                converted_bytes = XMLRenderer().render(data)
+                converted = converted_bytes.decode("utf-8") if isinstance(converted_bytes, bytes) else converted_bytes
 
             return Response({
                 "input_format": input_format,
