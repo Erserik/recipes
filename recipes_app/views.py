@@ -401,3 +401,50 @@ class RecipeCommentView(APIView):
         comments = recipe.comments.select_related('user').all().order_by('-created_at')
         serializer = CommentSerializer(comments, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+from rest_framework.parsers import JSONParser
+from rest_framework_xml.parsers import XMLParser
+from rest_framework.renderers import JSONRenderer
+from rest_framework_xml.renderers import XMLRenderer
+class JsonXmlConverterView(APIView):
+    """
+    Универсальный конвертер JSON <-> XML
+    """
+    parser_classes = [JSONParser, XMLParser]
+    renderer_classes = [JSONRenderer, XMLRenderer]
+
+    @swagger_auto_schema(
+        operation_summary="Конвертация JSON ↔ XML",
+        operation_description=(
+            "Принимает JSON или XML и возвращает оба формата: "
+            "исходный и преобразованный. "
+            "Пример:\n"
+            "- Отправь JSON, получишь XML и обратно."
+        ),
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            description="JSON или XML данные для конвертации"
+        ),
+        responses={200: "Converted successfully"}
+    )
+    def post(self, request, *args, **kwargs):
+        try:
+            # определяем, какой формат был на входе
+            content_type = request.content_type.lower()
+            data = request.data
+
+            if "xml" in content_type:
+                input_format = "xml"
+                converted = JSONRenderer().render(data).decode("utf-8")
+            else:
+                input_format = "json"
+                converted = XMLRenderer().render(data).decode("utf-8")
+
+            return Response({
+                "input_format": input_format,
+                "input_data": data,
+                "converted_data": converted
+            }, content_type="application/json", status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

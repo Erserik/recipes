@@ -4,7 +4,8 @@ from .views import (
     RecipeViewSet,
     RecipeIngredientView,
     RecipeIngredientDetailView,
-    RecipeCommentView
+    RecipeCommentView,
+    JsonXmlConverterView
 )
 
 router = DefaultRouter()
@@ -22,4 +23,7 @@ urlpatterns = [
 
     # 3. Комментарии (POST + GET)
     path('<int:recipe_id>/comments/', RecipeCommentView.as_view(), name='recipe_comment_list_create'),
+
+    path('convert/', JsonXmlConverterView.as_view(), name='json_xml_convert'),
+
 ]
