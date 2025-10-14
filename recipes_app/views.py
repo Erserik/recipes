@@ -410,6 +410,7 @@ class JsonXmlConverterView(APIView):
     """
     Универсальный конвертер JSON <-> XML
     """
+    permission_classes = [permissions.AllowAny]
     parser_classes = [JSONParser, XMLParser]
     renderer_classes = [JSONRenderer, XMLRenderer]
 
